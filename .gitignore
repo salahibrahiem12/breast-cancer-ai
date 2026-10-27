@@ -1,0 +1,31 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Local Python and editor environments
+.venv/
+venv/
+.idea/
+.vscode/
+
+# Other apps and local agent tooling
+text-to-video-app/
+.kilocode/
+.kilo/
+/salah.ipynb
+/scripts/
+/tests/
+
+# Datasets, generated reports, and uploaded examples
+data/
+reports/
+
+# Model checkpoints are ignored except the inference checkpoint used by app.py.
+models_saved/*.pth
+!models_saved/best_breast_cancer_resnet18_busi.pth
+
+# Local secrets
+.env
+.env.*
+.streamlit/secrets.toml
