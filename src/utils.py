@@ -51,7 +51,7 @@ def calculate_medical_metrics(
     y_true: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray, class_names: List[str]
 ) -> Dict[str, float]:
     """
-    Compute comprehensive clinical and statistical performance metrics:
+    Compute experimental classification performance metrics:
     - Overall Accuracy
     - Macro & Weighted F1-Scores
     - Sensitivity (Recall) per class & macro average
@@ -147,7 +147,7 @@ def plot_training_curves(history: Dict[str, List[float]], save_path: Path = None
 
 
 def plot_confusion_matrix_figure(cm: np.ndarray, class_names: List[str], save_path: Path = None):
-    """Plot an annotated, clinical-grade confusion matrix heatmap."""
+    """Plot an annotated confusion matrix for research evaluation."""
     import matplotlib.pyplot as plt
     import seaborn as sns
 
@@ -162,9 +162,9 @@ def plot_confusion_matrix_figure(cm: np.ndarray, class_names: List[str], save_pa
         cbar=True,
         annot_kws={"size": 13, "weight": "bold"},
     )
-    plt.title("Confusion Matrix - Diagnostic Classification", fontsize=14, fontweight="bold", pad=15)
-    plt.xlabel("Predicted Medical Diagnosis", fontsize=12, labelpad=10)
-    plt.ylabel("True Pathological Diagnosis", fontsize=12, labelpad=10)
+    plt.title("Confusion Matrix - Experimental Classifier", fontsize=14, fontweight="bold", pad=15)
+    plt.xlabel("Predicted Class", fontsize=12, labelpad=10)
+    plt.ylabel("Reference Dataset Label", fontsize=12, labelpad=10)
     plt.tight_layout()
 
     if save_path:

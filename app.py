@@ -1,27 +1,21 @@
-"""Streamlit interface for breast ultrasound classification and Grad-CAM."""
+"""Streamlit research prototype with classification disabled by a safety gate."""
 
-from hashlib import sha256
 import io
 from pathlib import Path
-import tempfile
 
-from PIL import Image, UnidentifiedImageError
 import streamlit as st
 
-from src.config import (
-    BUSI_RESNET18_MODEL_PATH,
-    CLASS_NAMES,
-    DEVICE,
-    FIGURES_DIR,
+from src.config import FIGURES_DIR
+from src.eligibility import (
+    UNSUPPORTED_IMAGE_MESSAGE,
+    UnsupportedImageError,
+    decode_rgb_image,
+    require_verified_ultrasound,
 )
-from src.explainability import explain_prediction
-from src.predict import load_inference_model, predict_single_image
-
-MODEL_NAME = "resnet18"
 
 
 st.set_page_config(
-    page_title="Breast Cancer AI Diagnostic Assistant",
+    page_title="BreastCare AI Research Prototype",
     page_icon="🎗️",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -470,10 +464,10 @@ def render_header() -> None:
             </svg>
             <div class="brand-name">
               BreastCare <span>AI</span>
-              <small class="brand-tagline">EARLIER DETECTION. BRIGHTER TOMORROWS.</small>
+              <small class="brand-tagline">RESEARCH PROTOTYPE · NOT CLINICALLY VALIDATED</small>
             </div>
           </div>
-          <div class="ai-pill">✦ &nbsp; AI Powered</div>
+          <div class="ai-pill">✦ &nbsp; Research prototype</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -485,32 +479,29 @@ def render_hero() -> None:
         f"""
         <section class="hero">
           <div class="hero-copy">
-            <div class="eyebrow">✦ &nbsp; AI Diagnostics</div>
-            <h1 class="hero-title">Breast Cancer <span style="color:#344eaa">AI</span><br>
-              Diagnostic <span class="pink">Assistant</span>
+            <div class="eyebrow">✦ &nbsp; Experimental prototype</div>
+            <h1 class="hero-title">Breast Ultrasound <span style="color:#344eaa">AI</span><br>
+              Research <span class="pink">Prototype</span>
             </h1>
             <p class="hero-description">
-              Upload a breast ultrasound image and get an AI-powered analysis
-              with a clear, visual explanation.
+              An experimental research interface for breast ultrasound image
+              classification. Classification is currently disabled for safety.
             </p>
             <div class="hero-disclaimer">
               <span aria-hidden="true">🛡</span>
-              <span>Decision-support tool, not a final diagnosis.<br>
-                Always consult a healthcare professional.</span>
+              <span>Not clinically validated and not a replacement for clinical assessment.</span>
             </div>
           </div>
-          <div class="hero-visual" aria-label="Illustration of AI ultrasound analysis">
+          <div class="hero-visual" aria-label="Illustrative ultrasound-style graphic, not patient data">
             <div class="hero-glow"></div>
             <div class="ultrasound-frame">
               <div class="scan-art" role="img" aria-label="Illustrative ultrasound scan"></div>
-              <div class="scan-marker"></div>
             </div>
             <div class="analysis-float">
-              <div class="analysis-title">◉ &nbsp; AI Analysis</div>
-              <div class="analysis-item"><b>✓</b> Lesion detected</div>
-              <div class="analysis-item"><b>✓</b> Size estimation</div>
-              <div class="analysis-item"><b>✓</b> Confidence score</div>
-              <div class="analysis-item"><b>✓</b> Visual explanation</div>
+              <div class="analysis-title">◉ &nbsp; Safety status</div>
+              <div class="analysis-item"><b>!</b> Modality detector unavailable</div>
+              <div class="analysis-item"><b>!</b> Classification disabled</div>
+              <div class="analysis-item"><b>!</b> No diagnosis is produced</div>
             </div>
           </div>
         </section>
@@ -525,23 +516,23 @@ def render_feature_strip() -> None:
         <div class="feature-strip">
           <div class="feature">
             <div class="feature-icon">◉</div>
-            <div><p class="feature-title">AI-Powered Analysis</p>
-              <p class="feature-copy">Advanced AI for accurate<br>image interpretation.</p></div>
+            <div><p class="feature-title">Research Prototype</p>
+              <p class="feature-copy">Experimental image<br>classification research.</p></div>
           </div>
           <div class="feature">
             <div class="feature-icon">◉</div>
             <div><p class="feature-title">Visual Explanation</p>
-              <p class="feature-copy">Clear highlights and<br>result visualization.</p></div>
+              <p class="feature-copy">No explanation shown<br>without eligibility.</p></div>
           </div>
           <div class="feature">
             <div class="feature-icon">♧</div>
             <div><p class="feature-title">Safety First</p>
-              <p class="feature-copy">Helps support clinical<br>decisions, not replace them.</p></div>
+              <p class="feature-copy">Classification is<br>disabled for safety.</p></div>
           </div>
           <div class="feature">
             <div class="feature-icon">▤</div>
             <div><p class="feature-title">Educational Use</p>
-              <p class="feature-copy">Built for learning,<br>research and awareness.</p></div>
+              <p class="feature-copy">Not validated for<br>clinical use.</p></div>
           </div>
         </div>
         """,
@@ -549,30 +540,17 @@ def render_feature_strip() -> None:
     )
 
 
-@st.cache_resource
-def get_cached_model(checkpoint_path: str = str(BUSI_RESNET18_MODEL_PATH)):
-    """Load the validation-selected ResNet-18 once per Streamlit process."""
-    path = Path(checkpoint_path)
-    if not path.is_file():
-        raise FileNotFoundError(f"Model checkpoint not found: {path}")
-    return load_inference_model(
-        model_name=MODEL_NAME,
-        checkpoint_path=path,
-        device=DEVICE,
-    )
-
-
 def render_advanced_sections() -> None:
     """Keep analytics and architecture available without crowding the main flow."""
     with st.expander("Advanced", expanded=False):
         metrics_tab, architecture_tab = st.tabs(
-            ["Clinical Metrics & ROC", "System Architecture"]
+            ["Historical Metrics (not clinical)", "System Architecture"]
         )
 
         with metrics_tab:
             st.caption(
-                "Saved charts are from a prior run and have not been verified against "
-                "the current checkpoint; treat them as historical artifacts."
+                "Historical research charts only. They are not patient-independent "
+                "validation and do not support clinical use."
             )
             chart_columns = st.columns(2)
             chart_paths = (
@@ -597,13 +575,14 @@ def render_advanced_sections() -> None:
         with architecture_tab:
             st.markdown(
                 """
-                **ResNet-18** uses transfer learning with a three-class
-                diagnostic head. Grad-CAM highlights image regions that
-                influence the predicted class.
+                The experimental ResNet-18 was trained as a closed-set
+                three-class model. Its softmax outputs are not calibrated
+                probabilities and cannot identify out-of-distribution images.
+                Classification is blocked until an independently validated
+                ultrasound eligibility detector is available.
 
-                The model resizes input images to the configured image size,
-                converts them to RGB, and applies the same ImageNet
-                normalization used by the training evaluation transform.
+                No clinical diagnosis, lesion detection, or lesion sizing is
+                performed. Grad-CAM is not a validated lesion localization tool.
                 """
             )
 
@@ -636,117 +615,22 @@ def main() -> None:
             disabled=image_bytes is None,
         )
         st.markdown(
-            '<div class="upload-note">ⓘ &nbsp; After uploading, the AI will analyze the image and provide a visual explanation.</div>',
+            '<div class="upload-note">ⓘ &nbsp; Classification is disabled until a separate breast-ultrasound eligibility detector has been validated.</div>',
             unsafe_allow_html=True,
         )
-
-    image_key = sha256(image_bytes).hexdigest() if image_bytes is not None else None
 
     if analyze_clicked and image_bytes is not None:
-        st.session_state.pop("analysis_result", None)
-        if not BUSI_RESNET18_MODEL_PATH.is_file():
-            st.error(
-                f"ResNet-18 checkpoint not found at {BUSI_RESNET18_MODEL_PATH}. "
-                "Train the ResNet-18 model with scripts/train_busi.py before analyzing images."
-            )
-        else:
-            try:
-                with Image.open(io.BytesIO(image_bytes)) as uploaded_image:
-                    uploaded_image.verify()
-                with Image.open(io.BytesIO(image_bytes)) as uploaded_image:
-                    original_image = uploaded_image.convert("RGB")
-            except (
-                Image.DecompressionBombError,
-                UnidentifiedImageError,
-                OSError,
-                ValueError,
-            ) as exc:
-                st.error(
-                    "This file could not be read as a valid PNG or JPG image. "
-                    f"Please choose another image. Details: {exc}"
-                )
-            else:
-                try:
-                    with st.spinner("Analyzing the ultrasound image..."):
-                        model = get_cached_model()
-                        with tempfile.TemporaryDirectory(prefix="breast_ai_") as temp_dir:
-                            image_path = Path(temp_dir) / "uploaded_image.png"
-                            original_image.save(image_path, format="PNG")
-                            prediction, confidence, probabilities = predict_single_image(
-                                image_path,
-                                model,
-                                device=DEVICE,
-                            )
-                            _, _, overlay = explain_prediction(
-                                model=model,
-                                image_path=image_path,
-                                device=DEVICE,
-                            )
+        try:
+            uploaded_image = decode_rgb_image(image_bytes)
+            require_verified_ultrasound(uploaded_image)
+        except UnsupportedImageError as exc:
+            st.error(str(exc))
 
-                    st.session_state["analysis_result"] = {
-                        "image_key": image_key,
-                        "model_name": MODEL_NAME,
-                        "original": original_image.copy(),
-                        "overlay": overlay,
-                        "prediction": prediction,
-                        "confidence": confidence,
-                        "probabilities": probabilities,
-                    }
-                except (FileNotFoundError, OSError, RuntimeError, ValueError) as exc:
-                    st.error(f"Analysis could not be completed. Details: {exc}")
-
-    result = st.session_state.get("analysis_result")
     if image_bytes is None:
         st.markdown(
-            '<p class="upload-copy">Your analysis and Grad-CAM explanation will appear here after you select Analyze.</p>',
+            '<p class="upload-copy">Upload an image to see the safety gate. No classifications are currently produced.</p>',
             unsafe_allow_html=True,
         )
-    elif (
-        result is None
-        or result.get("image_key") != image_key
-        or result.get("model_name") != MODEL_NAME
-    ):
-        st.caption("Your result will appear here after you select Analyze.")
-    else:
-        prediction = result["prediction"]
-        confidence = result["confidence"]
-        is_malignant = prediction == "malignant"
-        card_class = "malignant" if is_malignant else ""
-        st.markdown(
-            f"""
-            <div class="diagnosis-card {card_class}">
-                <h2>Predicted class: {prediction.title()}</h2>
-                <p>Model confidence: {confidence:.1%}</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.progress(
-            min(max(float(confidence), 0.0), 1.0),
-            text=f"Confidence: {confidence:.1%}",
-        )
-
-        st.markdown("#### Class probabilities")
-        for class_name in CLASS_NAMES:
-            probability = float(result["probabilities"][class_name])
-            st.progress(
-                min(max(probability, 0.0), 1.0),
-                text=f"{class_name.title()} · {probability:.1%}",
-            )
-
-        image_column, overlay_column = st.columns(2)
-        with image_column:
-            st.image(
-                result["original"],
-                caption="Original ultrasound image",
-                use_container_width=True,
-            )
-        with overlay_column:
-            st.image(
-                result["overlay"],
-                caption="Grad-CAM overlay",
-                use_container_width=True,
-            )
 
     render_feature_strip()
     render_advanced_sections()

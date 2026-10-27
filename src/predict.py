@@ -1,10 +1,6 @@
-"""
-Inference & Prediction module for single images or directory batches.
-Includes probability distribution and optional Grad-CAM explainability generation.
-"""
+"""Experimental image inference, currently blocked by a fail-closed safety gate."""
 
 import argparse
-import json
 import sys
 from pathlib import Path
 from typing import Dict, Tuple
@@ -17,6 +13,11 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from src.config import BEST_MODEL_PATH, CLASS_NAMES, DEVICE, NUM_CLASSES
 from src.dataset import get_eval_transforms
+from src.eligibility import (
+    UnsupportedImageError,
+    decode_rgb_image,
+    require_verified_ultrasound,
+)
 from src.models import build_model
 from src.utils import load_checkpoint
 
@@ -48,17 +49,18 @@ def predict_single_image(
     device: torch.device = DEVICE,
 ) -> Tuple[str, float, Dict[str, float]]:
     """
-    Performs inference on a single ultrasound image.
+    Performs inference only after ultrasound eligibility is verified.
+
+    The current implementation intentionally rejects all images because no
+    validated eligibility detector is available.
     Returns:
         predicted_class (str): E.g., 'malignant'
-        confidence (float): Probability score of top predicted class
-        class_probabilities (dict): Full probability breakdown
+        confidence (float): Raw, uncalibrated softmax score
+        class_probabilities (dict): Raw softmax scores, not calibrated estimates
     """
     image_path = Path(image_path)
-    if not image_path.exists():
-        raise FileNotFoundError(f"Image not found at: {image_path}")
-
-    image = Image.open(image_path).convert("RGB")
+    image = decode_rgb_image(image_path)
+    require_verified_ultrasound(image)
     transform = get_eval_transforms()
     input_tensor = transform(image).unsqueeze(0).to(device)
 
@@ -78,34 +80,17 @@ def predict_single_image(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Predict Breast Cancer Diagnosis from Ultrasound Image")
+    parser = argparse.ArgumentParser(
+        description="Experimental image classifier (prediction currently disabled)"
+    )
     parser.add_argument("--image", type=str, required=True, help="Path to ultrasound image file")
-    parser.add_argument("--model", type=str, default="breastnet", help="Model architecture")
-    parser.add_argument("--checkpoint", type=str, default=str(BEST_MODEL_PATH), help="Path to weights checkpoint")
-    parser.add_argument("--explain", action="store_true", help="Generate and save Grad-CAM visualization")
     args = parser.parse_args()
 
-    model = load_inference_model(model_name=args.model, checkpoint_path=Path(args.checkpoint))
-    pred_class, conf, probs = predict_single_image(Path(args.image), model)
-
-    print("\n" + "=" * 50)
-    print("      BREAST CANCER AI DIAGNOSIS REPORT      ")
-    print("=" * 50)
-    print(f"Target Image:      {args.image}")
-    print(f"Predicted Class:   {pred_class.upper()}")
-    print(f"Confidence Score:  {conf * 100:.2f}%")
-    print("-" * 50)
-    print("Class Probability Breakdown:")
-    for cls_name, p in probs.items():
-        bar = "#" * int(p * 30)
-        print(f"  {cls_name.capitalize():<10}: {p*100:5.2f}%  {bar}")
-    print("=" * 50)
-
-    if args.explain:
-        from src.explainability import explain_prediction
-        save_path = Path("reports/figures") / f"explain_{Path(args.image).stem}.png"
-        explain_prediction(model, Path(args.image), save_path=save_path)
-        print(f"Grad-CAM explainability figure saved to: {save_path}")
+    try:
+        image = decode_rgb_image(args.image)
+        require_verified_ultrasound(image)
+    except UnsupportedImageError as exc:
+        parser.exit(2, f"{exc}\n")
 
 
 if __name__ == "__main__":

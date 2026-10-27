@@ -1,7 +1,4 @@
-"""
-Explainability module: Visual Interpretation using Grad-CAM (Gradient-weighted Class Activation Mapping).
-Highlights anatomical and lesion regions driving the deep learning prediction.
-"""
+"""Experimental Grad-CAM utilities; inference is blocked by the safety gate."""
 
 from pathlib import Path
 from typing import Optional, Tuple
@@ -14,6 +11,12 @@ from PIL import Image
 
 from src.config import CLASS_NAMES, DEVICE, FIGURES_DIR, IMAGE_SIZE, NORM_MEAN, NORM_STD
 from src.dataset import get_eval_transforms
+from src.eligibility import (
+    UNSUPPORTED_IMAGE_MESSAGE,
+    UnsupportedImageError,
+    decode_rgb_image,
+    require_verified_ultrasound,
+)
 
 
 class GradCAM:
@@ -50,8 +53,9 @@ class GradCAM:
         Returns:
             heatmap: (H, W) float array normalized in [0, 1]
             pred_class: predicted class index
-            confidence: softmax probability of predicted class
+            confidence: uncalibrated softmax score (not a probability estimate)
         """
+        raise UnsupportedImageError(UNSUPPORTED_IMAGE_MESSAGE)
         self.model.eval()
         self.model.zero_grad()
 
@@ -116,10 +120,12 @@ def explain_prediction(
     save_path: Optional[Path] = None,
 ) -> Tuple[str, float, Image.Image]:
     """
-    Convenience function: runs Grad-CAM on a single image and produces a side-by-side diagnostic visualization.
+    Runs experimental Grad-CAM only after ultrasound eligibility is verified.
+    The current safety gate rejects every image; Grad-CAM is not lesion localization.
     """
     image_path = Path(image_path)
-    raw_image = Image.open(image_path).convert("RGB")
+    raw_image = decode_rgb_image(image_path)
+    require_verified_ultrasound(raw_image)
 
     eval_transform = get_eval_transforms()
     input_tensor = eval_transform(raw_image).unsqueeze(0).to(device)
@@ -152,7 +158,8 @@ def explain_prediction(
 
     axes[2].imshow(cam_overlay)
     axes[2].set_title(
-        f"AI Attention Overlay\nDiagnosis: {pred_class.upper()} ({confidence*100:.1f}%)",
+        f"Experimental Activation Overlay\nClass: {pred_class.upper()} "
+        f"(uncalibrated score {confidence*100:.1f}%)",
         fontsize=12,
         fontweight="bold",
         color="darkred" if pred_class == "malignant" else "darkgreen",

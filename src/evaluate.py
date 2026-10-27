@@ -1,6 +1,6 @@
 """
-Model Evaluation and Diagnostic Performance Reporting module.
-Computes clinical metrics (Sensitivity, Specificity, ROC-AUC, F1) on unseen test set.
+Experimental model performance reporting module.
+Computes research metrics on the existing image-level split.
 """
 
 import argparse
@@ -39,11 +39,11 @@ def evaluate_model(
     device: torch.device = DEVICE,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Runs forward inference across the entire test set.
+    Runs forward inference across the available image-level test split.
     Returns:
         y_true: True ground truth class indices (N,)
         y_pred: Predicted class indices (N,)
-        y_prob: Predicted softmax probability distributions (N, C)
+        y_prob: Uncalibrated softmax score distributions (N, C)
     """
     model.eval()
     all_preds = []
@@ -69,13 +69,13 @@ def run_evaluation(
     device: torch.device = DEVICE,
 ) -> Dict[str, float]:
     """
-    Loads checkpoint, executes test evaluation, plots figures, and prints clinical summary.
+    Loads checkpoint and reports research metrics; the split is not patient independent.
     """
     checkpoint_path = Path(checkpoint_path)
     if not checkpoint_path.exists():
         raise FileNotFoundError(f"Checkpoint not found at: {checkpoint_path}. Train the model first.")
 
-    print(f"\nEvaluating Model on Unseen Test Set")
+    print("\nEvaluating on the Existing Image-Level Test Split (Not Patient-Independent)")
     print(f"Loading weights from: {checkpoint_path}")
     print(f"Evaluation Device: {device}\n" + "=" * 65)
 
@@ -88,7 +88,7 @@ def run_evaluation(
     y_true, y_pred, y_prob = evaluate_model(model, test_loader, device=device)
 
     # 1. Classification Report
-    print("\n--- CLINICAL CLASSIFICATION REPORT ---")
+    print("\n--- EXPERIMENTAL CLASSIFICATION REPORT (NOT CLINICAL VALIDATION) ---")
     print(classification_report(y_true, y_pred, target_names=[c.capitalize() for c in CLASS_NAMES], digits=4, zero_division=0))
 
     # 2. Confusion Matrix
@@ -106,7 +106,7 @@ def run_evaluation(
     metrics = calculate_medical_metrics(y_true, y_pred, y_prob, CLASS_NAMES)
 
     print("\n" + "=" * 65)
-    print("           SUMMARY OF MEDICAL DIAGNOSTIC METRICS           ")
+    print("         SUMMARY OF EXPERIMENTAL CLASSIFICATION METRICS         ")
     print("=" * 65)
     print(f"Overall Accuracy:            {metrics['accuracy']*100:6.2f}%")
     print(f"Macro F1-Score:              {metrics['f1_macro']:.4f}")

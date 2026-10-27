@@ -60,7 +60,7 @@ class ConvBlock(nn.Module):
 
 class BreastNet(nn.Module):
     """
-    Custom Medical CNN designed for B-mode ultrasound lesion classification.
+    Experimental CNN for image classification research on B-mode ultrasound data.
     Features progressive channel expansion (3 -> 32 -> 64 -> 128 -> 256),
     channel attention mechanisms, global average pooling, and regularized dense head.
     """

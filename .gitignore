@@ -16,6 +16,9 @@ text-to-video-app/
 /salah.ipynb
 /scripts/
 /tests/
+!/tests/
+/tests/*
+!/tests/test_inference_safety.py
 
 # Datasets, generated reports, and uploaded examples
 data/

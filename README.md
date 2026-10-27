@@ -1,45 +1,40 @@
-# 🎗️ PyTorch Breast Cancer Detection & Explainability System
+# 🎗️ Experimental Breast Ultrasound Classification Research Project
 
-An end-to-end medical deep learning system for automated breast cancer classification from B-mode ultrasound imaging, complete with clinical performance evaluation and Grad-CAM visual interpretability.
+This project contains an experimental image classifier. It is not a medical
+device, has not been clinically validated, and must not be used to diagnose,
+exclude, or guide treatment for breast cancer.
+
+> **Safety status:** Classification is disabled in the Streamlit app and
+> inference APIs. The project does not have a validated detector to verify that
+> an uploaded image is a breast ultrasound. Until such a detector is trained
+> and independently evaluated, every image is rejected rather than assigned a
+> cancer class.
 
 ---
 
-## 🩺 Clinical Overview
+## Research context
 
-Breast cancer is the most prevalent malignancy among women worldwide. Early and accurate diagnosis is pivotal—early-stage localized detection yields a 5-year survival rate exceeding **99%**.
-
-### Ultrasound Diagnostic Characteristics
-Ultrasound (US) imaging is the primary modality used to differentiate solid tumors from fluid-filled cysts, guiding biopsy decisions:
-* **Benign Lesions** (e.g., Fibroadenomas, Simple Cysts):
-  - Well-circumscribed, oval or round margins.
-  - Wider-than-tall orientation.
-  - Posterior acoustic enhancement.
-* **Malignant Tumors** (e.g., Invasive Ductal Carcinoma):
-  - Irregular, non-circumscribed, microlobulated or spiculated margins.
-  - Taller-than-wide orientation (vertical growth axis).
-  - Posterior acoustic shadowing and microcalcifications.
-* **Normal Tissue**:
-  - Regular layered glandular and subcutaneous echotexture without focal mass.
+This project experiments with classifying BUSI dataset images. Its outputs
+must not be interpreted as cancer diagnoses or used to guide clinical care.
 
 ---
 
 ## 🚀 Key Features
 
-* **Dual Model Architectures**:
-  * **`BreastNet`**: Custom medical Convolutional Neural Network with **Squeeze-and-Excitation (SE)** channel attention blocks for acoustic feature refinement.
-  * **Transfer Learning Backbones**: Pre-trained ResNet-18, ResNet-50, and EfficientNet with customized diagnostic dropout heads.
-* **Medical Data Augmentations**:
-  * Simulates clinical transducer angle variations, acoustic gain changes, affine rotations, and flips.
-  * Automatic inverse-frequency **class weighting** to mitigate medical class imbalance.
-* **Clinical Performance Metrics**:
-  * Sensitivity (Recall) — prioritizes eliminating False Negatives.
-  * Specificity — prevents unnecessary invasive biopsies.
-  * Macro F1-score and multi-class One-vs-Rest ROC-AUC.
+* **Experimental Model Architectures**:
+  * `BreastNet` and transfer-learning backbones are research code, not validated
+    diagnostic models.
+* **Training Augmentations**: Rotations, flips, affine transforms, and color
+  jitter are experimental choices, not a claim of clinical realism.
+* **Experimental Metrics**: Historical image-level split measurements are
+  included for research context only. They are not patient-independent or
+  clinical validation.
 * **Visual Interpretability with Grad-CAM**:
-  * Highlights suspect hypoechoic acoustic zones directly on the ultrasound scan to aid radiological review.
+  * Exploratory visualization only; Grad-CAM is not validated lesion detection
+    or localization.
 * **Dual Execution Modes**:
-  * **Interactive Jupyter Notebook** ([salah.ipynb](file:///d:/breast_cancer/salah.ipynb)): Step-by-step guided exploration, training, and visualization.
-  * **Modular CLI Scripts**: Clean production-ready Python modules for automation.
+  * **Interactive Jupyter Notebook** ([salah.ipynb](file:///d:/breast_cancer/salah.ipynb)): Guided exploration and training; inference cells now display the safety gate instead of a diagnosis.
+  * **Modular CLI Scripts**: Research and experiment utilities.
 
 ---
 
@@ -50,7 +45,7 @@ breast_cancer/
 ├── data/
 │   ├── raw/                       # Raw source images (benign, malignant, normal)
 │   ├── processed/                 # Stratified splits (train: 70%, val: 15%, test: 15%)
-│   └── sample_generator.py        # Realistic B-mode ultrasound synthesizer
+│   └── sample_generator.py        # Synthetic examples for software tests only
 ├── src/
 │   ├── __init__.py
 │   ├── config.py                  # Hyperparameters, device settings, and class mapping
@@ -63,13 +58,13 @@ breast_cancer/
 │   └── utils.py                   # Checkpointing, metrics calculation, and plotting
 ├── scripts/
 │   ├── download_data.py           # Ingestion and stratified split script
-│   ├── run_pipeline.py            # Master CLI runner executing data prep, training, eval & Grad-CAM
+│   ├── run_pipeline.py            # Research data prep, training, and evaluation
 │   └── make_notebook.py           # Programmatic generator for salah.ipynb
 ├── tests/
-│   └── test_pipeline.py           # Unit and integration tests
+│   └── test_inference_safety.py   # Fail-closed inference regression tests
 ├── models_saved/                  # Saved model checkpoints (.pth)
 ├── reports/
-│   └── figures/                   # Learning curves, confusion matrices, ROC curves, Grad-CAM overlays
+│   └── figures/                   # Research learning curves, confusion matrices, and ROC curves
 ├── salah.ipynb                    # Complete interactive Jupyter Notebook
 ├── requirements.txt               # Project dependencies
 └── README.md                      # Documentation
@@ -93,12 +88,19 @@ breast_cancer/
 
 ## 🖥️ Usage Guide
 
-### Streamlit Diagnostic Assistant
-Launch the focused image-analysis interface:
+### Streamlit research interface
+Launch the research interface:
 ```bash
 streamlit run app.py
 ```
-Upload a PNG or JPG, select **Analyze**, and review the prediction with its Grad-CAM overlay. The app uses the validation-selected ResNet-18 BUSI checkpoint. Its local image-level split contains some near-duplicate images across splits, so reported metrics may be optimistic; it has not been independently or clinically validated and must not be used to diagnose, rule out cancer, or guide treatment.
+The upload flow currently fails closed and displays
+`Unsupported image: Unable to verify that this is a breast ultrasound image.`
+for every image. No prediction, confidence, or Grad-CAM overlay is generated.
+The model's softmax scores are uncalibrated and cannot establish whether an
+image is in-distribution.
+
+See [RELIABILITY_AUDIT.md](./RELIABILITY_AUDIT.md) for the root-cause analysis,
+historical metrics, regression tests, and remaining validation requirements.
 
 ### Train on the BUSI dataset
 Use the official class folders (`benign`, `malignant`, `normal`) and exclude segmentation masks:
@@ -108,7 +110,8 @@ python scripts/train_busi.py --source "C:\path\to\Dataset_BUSI_with_GT" --epochs
 This creates a separate 70/15/15 split under `data/processed_busi/`, writes the selected checkpoint under `models_saved/`, and reports per-class metrics plus macro-F1 and ROC-AUC in `reports/`. To use pretrained ResNet-18, add `--model resnet18`; its ImageNet weights are cached by torchvision. If the output split already exists, the script stops rather than replacing it; reuse a verified split with `--reuse-splits`.
 
 ### 1. Run the Entire End-to-End Pipeline
-Execute data preparation, training, evaluation, and Grad-CAM generation in one command:
+Execute data preparation, training, and experimental evaluation in one command.
+Grad-CAM and image prediction are intentionally disabled:
 ```bash
 python scripts/run_pipeline.py --model breastnet --epochs 10 --batch-size 16
 ```
@@ -123,16 +126,17 @@ python src/train.py --model breastnet --epochs 15 --batch-size 16 --lr 0.0001
 python src/train.py --model resnet18 --epochs 15 --batch-size 16 --lr 0.0001
 ```
 
-### 3. Evaluate Model on Test Set
-Evaluate the trained checkpoint and generate the clinical confusion matrix and ROC curves:
+### 3. Evaluate Model on the existing image-level split
+Generate experimental classification metrics and plots. These are not
+independent patient-level or clinical validation:
 ```bash
 python src/evaluate.py --model breastnet --checkpoint models_saved/best_breast_cancer_model.pth
 ```
 
-### 4. Run Diagnosis on a New Ultrasound Scan
-Predict diagnosis and generate an explainability heatmap for any image:
+### 4. Try the prediction CLI (currently blocked)
+The CLI rejects all images until a validated modality detector is available:
 ```bash
-python src/predict.py --image data/processed/test/malignant/malignant_0001.png --model breastnet --explain
+python src/predict.py --image data/processed_busi/test/malignant/malignant_0001.png
 ```
 
 ---
@@ -144,7 +148,7 @@ Open and run [salah.ipynb](file:///d:/breast_cancer/salah.ipynb) inside JupyterL
 * Interactive visualizations of scans across diagnostic classes.
 * Live training loss & accuracy graphs.
 * High-resolution Confusion Matrix heatmap & ROC curves.
-* Interactive Grad-CAM widget visualizing where the model focuses.
+* Inference and Grad-CAM are disabled until image eligibility is validated.
 
 ---
 
@@ -172,10 +176,11 @@ To use the official **Breast Ultrasound Images (BUSI)** benchmark:
 
 ## 📊 Evaluation Metrics Guide
 
-| Metric | Clinical Importance |
+| Metric | Research interpretation (not clinical validation) |
 | :--- | :--- |
-| **Sensitivity (Recall)** | Minimizes **False Negatives** — ensures malignant cancers are not missed. |
-| **Specificity** | Minimizes **False Positives** — avoids unnecessary biopsy trauma and patient anxiety. |
-| **F1-Score** | Harmonic mean balancing precision and recall across imbalanced medical classes. |
-| **ROC-AUC** | Evaluates diagnostic discrimination threshold independence across all classes. |
-| **Grad-CAM** | Provides transparent visual validation of AI reasoning for clinical auditability. |
+| **Sensitivity (Recall)** | Fraction of reference-labeled examples recovered for a class. |
+| **Specificity** | Fraction of other reference-labeled examples not assigned to a class. |
+| **F1-Score** | Harmonic mean of precision and recall on the sampled image split. |
+| **ROC-AUC** | Ranking metric on the sampled image split; not evidence of clinical utility. |
+| **PR-AUC / average precision** | Class-ranking summary on the sampled image split; not validation of eligibility or calibration. |
+| **Grad-CAM** | Exploratory activation visualization only; it does not prove model reasoning or localize a lesion. |
