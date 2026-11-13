@@ -11,13 +11,28 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from io import BytesIO
+import logging
 import math
+from pathlib import Path
 from typing import Literal
 
 import numpy as np
 from PIL import Image, ImageFilter, ImageStat, UnidentifiedImageError
 
-from backend.app.config import MAX_IMAGE_PIXELS, MAX_UPLOAD_BYTES, MIN_IMAGE_SIDE, SUPPORTED_FORMATS
+from backend.app.config import (
+    ELIGIBILITY_PROBE_PATH,
+    MAX_IMAGE_PIXELS,
+    MAX_UPLOAD_BYTES,
+    MIN_IMAGE_SIDE,
+    SUPPORTED_FORMATS,
+)
+
+logger = logging.getLogger(__name__)
+
+# Cached ResNet-18 feature extractor and linear probe
+_PROBE_WEIGHTS: dict | None = None
+_RESNET18_MODEL = None
+_TORCH_TRANSFORM = None
 
 
 SupportedModality = Literal["breast_ultrasound", "mammography"]
@@ -129,6 +144,71 @@ def compute_quality_metrics(img: Image.Image) -> dict[str, float]:
     }
 
 
+def _get_probe_components():
+    global _PROBE_WEIGHTS, _RESNET18_MODEL, _TORCH_TRANSFORM
+    if _PROBE_WEIGHTS is None and ELIGIBILITY_PROBE_PATH.exists():
+        try:
+            import torch
+            import torchvision.models as models
+            import torchvision.transforms as transforms
+
+            _PROBE_WEIGHTS = torch.load(ELIGIBILITY_PROBE_PATH, map_location="cpu")
+            m = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+            m.fc = torch.nn.Identity()
+            m.eval()
+            _RESNET18_MODEL = m
+            _TORCH_TRANSFORM = transforms.Compose([
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+            ])
+            logger.info("Loaded Breast Eligibility Feature Probe from %s", ELIGIBILITY_PROBE_PATH)
+        except Exception as exc:
+            logger.warning("Failed to initialize eligibility probe: %s", exc)
+    return _PROBE_WEIGHTS, _RESNET18_MODEL, _TORCH_TRANSFORM
+
+
+def evaluate_breast_ultrasound_probe(img: Image.Image) -> float | None:
+    """Evaluate deep ResNet-18 feature probe probability for authentic breast ultrasound."""
+    weights, model, tf = _get_probe_components()
+    if weights is None or model is None or tf is None:
+        return None
+    try:
+        import torch
+        t = tf(img.convert("RGB")).unsqueeze(0)
+        with torch.inference_mode():
+            feat = model(t).numpy()[0]
+        coef = np.asarray(weights["coef"], dtype=np.float32)
+        intercept = float(weights["intercept"])
+        logit = float(np.dot(coef, feat) + intercept)
+        prob = 1.0 / (1.0 + math.exp(-logit))
+        return prob
+    except Exception as exc:
+        logger.warning("Eligibility probe inference error: %s", exc)
+        return None
+
+
+def is_obstetric_sector_geometry(img: Image.Image, q: dict[str, float]) -> bool:
+    """Identify curved transducer sector geometry characteristic of obstetric/fetal ultrasound."""
+    w, h = img.size
+    aspect = q.get("aspect_ratio", w / max(1, h))
+    arr = np.asarray(img.convert("L"), dtype=np.float32)
+
+    cw, ch = int(w * 0.16), int(h * 0.16)
+    tl = float(np.mean(arr[:ch, :cw] < 12))
+    tr = float(np.mean(arr[:ch, w - cw:] < 12))
+    corners = (tl + tr) / 2.0
+
+    row0_black = float(np.mean(arr[0, :] < 10))
+    top10_black = float(np.mean(arr[:max(1, int(h * 0.1)), :] < 10))
+    top_center = float(np.mean(arr[:max(1, int(h * 0.08)), int(w * 0.35) : int(w * 0.65)] < 12))
+
+    # Curved transducer sector signature: top dead corners radiating from apex
+    if (corners > 0.65 and (row0_black > 0.90 or top10_black > 0.60)) or (aspect > 1.42 and top_center > 0.85 and corners > 0.60):
+        return True
+    return False
+
+
 def classify_modality(img: Image.Image, q: dict[str, float]) -> tuple[DetectedModality, str | None]:
     """Stage 2: Differentiate breast ultrasound, mammography, chest X-ray, and non-medical images."""
     w, h = img.size
@@ -170,19 +250,36 @@ def classify_modality(img: Image.Image, q: dict[str, float]) -> tuple[DetectedMo
 
     # 4. Mammography (Breast X-ray):
     # - Pure black background on one side (air), prominent soft-tissue breast curve
-    # - Typically single lateralized breast projection (MLO or CC view)
+    # - Typically single lateralized breast projection (MLO or CC view), portrait format (aspect <= 1.10)
     # - High black border fraction (air around breast typically 20% to 75%)
     # - Asymmetrical intensity between left and right sides
     lateral_diff = abs(float(np.mean(left_half)) - float(np.mean(right_half)))
-    if black_border >= 0.15 and lateral_diff > 25.0 and contrast >= 60.0:
+    if aspect <= 1.10 and black_border >= 0.15 and lateral_diff > 25.0 and contrast >= 60.0:
         return "mammography", None
 
-    # 5. Breast Ultrasound:
+    # 5. Acoustic Sector check: Obstetric / Fetal Curved Sector Ultrasound
+    if is_obstetric_sector_geometry(img, q):
+        return "unsupported_image", "Non-breast acoustic sector geometry detected (curvilinear transducer or non-breast study)."
+
+    # 6. Breast Ultrasound:
     # - Full-frame acoustic field with dark scan borders, OR
     # - Cropped B-mode ultrasound field with characteristic speckle texture and mid/dark luminance
+    is_us_candidate = False
     if black_border >= 0.05 and q["sharpness_laplacian_var"] >= 6.0 and contrast >= 25.0:
-        return "breast_ultrasound", None
-    if q["mean_intensity"] <= 145.0 and std_val >= 15.0 and contrast >= 45.0 and q["sharpness_laplacian_var"] >= 20.0:
+        is_us_candidate = True
+    elif q["mean_intensity"] <= 145.0 and std_val >= 15.0 and contrast >= 45.0 and q["sharpness_laplacian_var"] >= 20.0:
+        is_us_candidate = True
+
+    if is_us_candidate:
+        # Check ResNet-18 breast ultrasound eligibility probe
+        probe_score = evaluate_breast_ultrasound_probe(img)
+        if probe_score is not None:
+            # Conservative calibrated cutoff
+            threshold = 0.20
+            if _PROBE_WEIGHTS and "threshold" in _PROBE_WEIGHTS:
+                threshold = float(_PROBE_WEIGHTS["threshold"])
+            if probe_score < threshold:
+                return "unsupported_image", f"Ultrasound features do not match authentic breast imaging criteria (probe score {probe_score:.3f} < {threshold:.2f})."
         return "breast_ultrasound", None
 
     # Fallback to unsupported if confidence is low

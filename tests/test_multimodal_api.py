@@ -16,7 +16,12 @@ def client():
 
 
 def make_ultrasound_bytes(width=224, height=224) -> bytes:
-    """Generate a synthetic breast ultrasound-like image with speckle and dark margins."""
+    """Return an authentic breast ultrasound image from local dataset if available, else synthetic."""
+    sample_path = "data/raw/tcia_breast_biopsy_external_v1/case002.png"
+    import os
+    if os.path.exists(sample_path):
+        with open(sample_path, "rb") as f:
+            return f.read()
     rng = np.random.default_rng(42)
     arr = np.zeros((height, width), dtype=np.uint8)
     margin_y = height // 8

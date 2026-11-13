@@ -30,6 +30,7 @@ text-to-video-app/
 !/tests/test_full_source_baseline.py
 !/tests/test_full_source_finetune.py
 !/tests/test_multimodal_api.py
+!/tests/test_fetal_regression.py
 
 # Local agent scratch directories
 my-agent-*/
@@ -42,6 +43,7 @@ reports/
 # Model checkpoints are ignored except the inference checkpoint used by app.py.
 models_saved/*.pth
 !models_saved/best_breast_cancer_resnet18_busi.pth
+!models_saved/eligibility/
 models_saved/versioned/
 
 # Next.js outputs and local environment

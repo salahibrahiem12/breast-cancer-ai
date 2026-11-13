@@ -17,6 +17,18 @@ MODEL_PATH = Path(
         str(PROJECT_ROOT / "models_saved" / "versioned" / "breastcare_resnet18_v1.pth"),
     )
 )
+ELIGIBILITY_PROBE_PATH = Path(
+    os.getenv(
+        "BREASTCARE_ELIGIBILITY_PROBE_PATH",
+        str(PROJECT_ROOT / "models_saved" / "eligibility" / "breast_eligibility_probe.pth"),
+    )
+)
+ELIGIBILITY_PROBE_META_PATH = Path(
+    os.getenv(
+        "BREASTCARE_ELIGIBILITY_PROBE_META_PATH",
+        str(PROJECT_ROOT / "models_saved" / "eligibility" / "breast_eligibility_probe.json"),
+    )
+)
 ELIGIBILITY_MODEL_PATH = Path(
     os.getenv(
         "BREASTCARE_ELIGIBILITY_MODEL_PATH",
