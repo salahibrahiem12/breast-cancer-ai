@@ -1,0 +1,16 @@
+services:
+  # BreastCare AI Backend Service (FastAPI)
+  - type: web
+    name: breastcare-api
+    runtime: docker
+    dockerfilePath: Dockerfile.api
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      - key: BREASTCARE_CLASSIFICATION_ENABLED
+        value: "false"
+      - key: BREASTCARE_CORS_ORIGINS
+        value: "*"
+      - key: PORT
+        value: "8000"
