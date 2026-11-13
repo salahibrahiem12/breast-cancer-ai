@@ -31,9 +31,24 @@ function harness() {
     fs.readFileSync(new URL('../components/analyze-uploader.tsx', import.meta.url), 'utf8'),
     { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2021 } },
   ).outputText;
+  const apiUrlModule = { exports: {} };
+  const apiUrlSource = ts.transpileModule(
+    fs.readFileSync(new URL('../lib/api-url.ts', import.meta.url), 'utf8'),
+    { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2021 } },
+  ).outputText;
+  vm.runInNewContext(apiUrlSource, {
+    module: apiUrlModule,
+    exports: apiUrlModule.exports,
+    process,
+  });
+
   vm.runInNewContext(source, {
     module: compiledModule, exports: compiledModule.exports,
-    require: name => name === 'react' ? hooks : loadModule(name),
+    require: name => {
+      if (name === 'react') return hooks;
+      if (name === '../lib/api-url' || name === '@/lib/api-url') return apiUrlModule.exports;
+      return loadModule(name);
+    },
     AbortController, process,
     FormData: class { append() {} },
     fetch: (url, options) => {

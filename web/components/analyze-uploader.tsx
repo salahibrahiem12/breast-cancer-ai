@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { buildApiUrl } from "../lib/api-url";
 
 type ValidateImageResponse = {
   is_valid: boolean;
@@ -162,11 +163,11 @@ export function AnalyzeUploader() {
     setLoading(true);
 
     try {
-      const baseUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
+      const analyzeUrl = buildApiUrl("/api/analyze");
       const analyzeForm = new FormData();
       analyzeForm.append("file", file);
 
-      const analyzeResponse = await fetch(`${baseUrl}/api/analyze`, {
+      const analyzeResponse = await fetch(analyzeUrl, {
         method: "POST",
         body: analyzeForm,
         signal: controller.signal,
@@ -183,9 +184,10 @@ export function AnalyzeUploader() {
       // Optionally enrich with /api/validate-image stage details (best-effort)
       let valBody: ValidateImageResponse | null = null;
       try {
+        const valUrl = buildApiUrl("/api/validate-image");
         const valForm = new FormData();
         valForm.append("file", file);
-        const valResponse = await fetch(`${baseUrl}/api/validate-image`, {
+        const valResponse = await fetch(valUrl, {
           method: "POST",
           body: valForm,
           signal: controller.signal,
