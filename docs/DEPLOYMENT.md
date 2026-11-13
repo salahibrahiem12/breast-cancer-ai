@@ -2,14 +2,42 @@
 
 ## 1. Overview & Architecture
 
-BreastCare AI is architected as a privacy-preserving, decoupled research system:
-- **Backend API (`backend/app/main.py`)**: Python 3.11 / FastAPI service exposing `/health`, `/model-info`, and `/analyze`. Operates strictly fail-closed: cancer classification remains hard-disabled (`BREASTCARE_CLASSIFICATION_ENABLED=false`) until independent prospective clinical evaluation and multi-category OOD gating are completed.
-- **Frontend Web UI (`web/`)**: Next.js 15 (React 19, Tailwind CSS) providing transparent model evidence, protocol summaries, and local client-directed analysis workflows.
-- **Container Infrastructure (`docker-compose.yml`)**: Multi-container Docker deployment with separate non-root service accounts, automated health checks, and explicit internal networking.
+BreastCare AI is architected as a privacy-preserving, decoupled multimodal research platform:
+- **Backend API (`backend/app/main.py`)**: Python 3.11 / FastAPI service exposing `/health`, `/ready`, `/api/models`, `/api/references`, `/api/validate-image`, and `/api/analyze`. Operates strictly fail-closed: cancer classification remains hard-disabled (`BREASTCARE_CLASSIFICATION_ENABLED=false`) until independent prospective clinical evaluation and multi-category OOD gating are completed.
+- **Frontend Web UI (`web/`)**: Next.js 15 (React 19, Tailwind CSS) providing pink-themed healthcare styling, 4-stage validation progress visualizer, Grad-CAM interpretability overlay, model evidence, and clinical research report downloads.
+- **Container Infrastructure (`Dockerfile.api`, `web/Dockerfile`, `docker-compose.yml`)**: Multi-container Docker deployment with separate non-root service accounts, automated health checks, and explicit internal networking.
+- **Cloud Deployment Manifests**:
+  - `render.yaml`: Blueprint configuration for 1-click backend deployment on Render.
+  - `railway.json`: Deployment manifest for Docker-based deployment on Railway.
+  - `web/vercel.json`: Next.js 15 deployment manifest for Vercel.
 
 ---
 
-## 2. Local Containerized Deployment (Docker Compose)
+## 2. Cloud Public Hosting (Render + Vercel)
+
+The recommended production architecture utilizes Vercel for the Next.js frontend and Render or Railway for the containerized FastAPI backend.
+
+### 2.1 Backend Deployment (Render)
+1. Navigate to [dashboard.render.com](https://dashboard.render.com).
+2. Click **New +** ➔ **Blueprint**.
+3. Connect repository `https://github.com/salahibrahiem12/breast-cancer-ai.git`.
+4. Render detects `render.yaml` automatically and configures:
+   - Build: `Dockerfile.api`
+   - Healthcheck: `/health`
+   - Env: `BREASTCARE_CLASSIFICATION_ENABLED=false`
+5. Note your assigned public backend URL (e.g. `https://breastcare-api.onrender.com`).
+
+### 2.2 Frontend Deployment (Vercel)
+1. Navigate to [vercel.com/new](https://vercel.com/new).
+2. Import repository `salahibrahiem12/breast-cancer-ai`.
+3. Set **Root Directory** to `web`.
+4. Under **Environment Variables**, add:
+   - `NEXT_PUBLIC_API_URL`: Your public backend URL (e.g. `https://breastcare-api.onrender.com`).
+5. Click **Deploy**. Vercel will build and assign your production domain.
+
+---
+
+## 3. Local Containerized Deployment (Docker Compose)
 
 ### 2.1 Prerequisites
 - Docker Engine 24.0+ or Docker Desktop
