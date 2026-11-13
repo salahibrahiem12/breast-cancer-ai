@@ -15,10 +15,25 @@ text-to-video-app/
 .kilo/
 /salah.ipynb
 /scripts/
-/tests/
 !/tests/
 /tests/*
 !/tests/test_inference_safety.py
+!/tests/test_backend_api.py
+!/tests/test_ml_pipeline.py
+!/tests/test_duplicate_audit.py
+!/tests/test_eligibility_pipeline.py
+!/tests/test_tcia_inventory.py
+!/tests/test_audit_development.py
+!/tests/test_bounded_development.py
+!/tests/test_locked_evaluation.py
+!/tests/test_cross_source.py
+!/tests/test_full_source_baseline.py
+!/tests/test_full_source_finetune.py
+!/tests/test_multimodal_api.py
+
+# Local agent scratch directories
+my-agent-*/
+scratch/
 
 # Datasets, generated reports, and uploaded examples
 data/
@@ -27,6 +42,16 @@ reports/
 # Model checkpoints are ignored except the inference checkpoint used by app.py.
 models_saved/*.pth
 !models_saved/best_breast_cancer_resnet18_busi.pth
+models_saved/versioned/
+
+# Next.js outputs and local environment
+web/node_modules/
+web/.next/
+web/out/
+web/.env.local
+web/next-env.d.ts.tmp
+.venv/
+*.tsbuildinfo
 
 # Local secrets
 .env

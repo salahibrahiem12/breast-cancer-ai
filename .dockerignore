@@ -1,0 +1,41 @@
+# Version control
+.git
+.gitignore
+
+# Python virtual environment and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+
+# Node.js / Next.js build artifacts and dependencies
+web/node_modules/
+web/.next/
+web/out/
+web/.env.local
+*.tsbuildinfo
+
+# Large datasets, raw images, and evaluation reports
+data/
+reports/
+notebooks/
+
+# Model weights and saved state (prevents huge container images; mount via volume if needed)
+models_saved/
+
+# Local secrets, keys, and environment files
+.env
+.env.*
+!.env.example
+
+# Local editor and tooling directories
+.idea/
+.vscode/
+.kilocode/
+.kilo/
+my-agent-y2mda0/
+*.log
+

@@ -1,0 +1,39 @@
+# BreastCare AI Backend API Dockerfile
+# Base image: Python 3.11 slim
+FROM python:3.11-slim
+
+# Prevent Python from writing .pyc files and enable unbuffered logging
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    BREASTCARE_CLASSIFICATION_ENABLED=false
+
+WORKDIR /app
+
+# Install minimal OS dependencies if needed
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install lightweight CPU-only PyTorch and dependencies first for build efficiency
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Create non-privileged service user
+RUN useradd -m -u 1000 breastcare && chown -R breastcare:breastcare /app
+
+# Copy application source code
+COPY backend /app/backend
+COPY ml /app/ml
+
+# Switch to non-root user
+USER breastcare
+
+EXPOSE 8000
+
+# Container healthcheck querying the /health endpoint
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD python -c "import urllib.request; sys_exit = 0 if urllib.request.urlopen('http://127.0.0.1:8000/health').getcode() == 200 else 1; exit(sys_exit)" || exit 1
+
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
