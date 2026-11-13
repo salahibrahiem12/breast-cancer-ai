@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 export default function CancerInfoPage() {
   return (
     <main className="page-shell mx-auto max-w-5xl px-5 pb-16 pt-10 sm:pt-14 lg:px-8">
@@ -73,7 +71,7 @@ export default function CancerInfoPage() {
                 <tr className="hover:bg-pink-50/50">
                   <td className="p-3 font-bold text-ink">Fibroadenoma (Benign)</td>
                   <td className="p-3">Hypoechoic, wider-than-tall, circumscribed or macrolobulated margins</td>
-                  <td className="p-3">Circumscribed mass, may have coarse "popcorn" calcifications</td>
+                  <td className="p-3">Circumscribed mass, may have coarse &quot;popcorn&quot; calcifications</td>
                   <td className="p-3 text-emerald-700 font-medium">BI-RADS 2 or 3: Routine or short-interval follow-up</td>
                 </tr>
                 <tr className="hover:bg-pink-50/50">

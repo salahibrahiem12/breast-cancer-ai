@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 export default function AboutPage() {
   return (
     <main className="page-shell mx-auto max-w-4xl px-5 pb-16 pt-10 sm:pt-14 lg:px-8">

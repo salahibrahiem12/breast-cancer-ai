@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 const treatmentModalities = [
   {
     title: "Surgical Resection",
